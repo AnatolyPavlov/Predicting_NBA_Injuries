@@ -201,7 +201,7 @@ def shuffle_rows(df):
 
 
 # function that aggregates the stats within a window of specified days
-def agg_stats(df, window=14):
+def agg_stats(df, window=21):
     columns = df.columns.tolist()
     cat_dict = defaultdict(list)
     for i in xrange(0, len(df)):
