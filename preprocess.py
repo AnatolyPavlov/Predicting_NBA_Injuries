@@ -1,10 +1,11 @@
-from datetime import datetime
-from collections import defaultdict
 import pandas as pd
 import os
 import json
+from datetime import datetime
 import numpy as np
+import seaborn as sns
 import re
+from collections import defaultdict
 import cPickle as pickle
 
 
@@ -163,22 +164,24 @@ def start_end_season(keyword, add_year=False):
     return season_range
 
 
-def create_feat_mat(df, data_window=14):
+def create_feat_mat(df, window=21):
     feat_mat = pd.DataFrame()
     player_id = df['PLAYER_ID'].unique().tolist()
     for id in player_id:
         tmp = df[df['PLAYER_ID'] == id]
-        roll_mean_df = pd.rolling_mean(tmp, data_window)
+        roll_mean_df = pd.rolling_mean(tmp, window)
         feat_mat = feat_mat.append(roll_mean_df)
     return feat_mat
 
 
+# converting pickled files to dataframes
 def pickles_to_pandas(keyword, add_year=False):
 
     fns = os.listdir('data/')
     with open('data/2014_{}_stats.pickle'.format(keyword), 'r') as f:
         pkl_f = pickle.load(f)
         cols = pkl_f[0]['resultSets'][0]['headers']
+
     df = pd.DataFrame(columns=cols)
     for fn in fns:
         if keyword in fn:
@@ -201,7 +204,7 @@ def shuffle_rows(df):
 
 
 # function that aggregates the stats within a window of specified days
-def agg_stats(df, window=21):
+def agg_stats(df, window):
     columns = df.columns.tolist()
     cat_dict = defaultdict(list)
     for i in xrange(0, len(df)):

@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 
 # scraping for injuries
 def get_injuries():
+
     # Create columns for dataframe
     df = pd.DataFrame(columns=['Date', 'Team', 'Player', 'Notes'])
 

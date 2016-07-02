@@ -142,8 +142,8 @@ class NBA_Scraper(object):
 
             if self.show_progress:
                 self.print_progress(season)
-
-        print "Game ID's all scraped!"
+        if show_progress:
+            print "Game ID's all scraped!"
 
     # scrapes pace or tracking stats
     def get_pace_tracking(self, stat):
@@ -187,3 +187,4 @@ class NBA_Scraper(object):
             # saves as a pickle
             with open('data/{}_{}_stats.pickle'.format(season, stat), 'w') as f:
                 pickle.dump(json_list, f)
+
