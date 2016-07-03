@@ -1,0 +1,35 @@
+import json
+
+city_abbrv = {'ATL': 'Atlanta',
+              'BOS': 'Boston',
+              'CLE': 'Cleveland',
+              'GSW': 'Oakland',
+              'OKC': 'Oklahoma+City',
+              'SAS': 'San+Antonio',
+              'POR': 'Portland',
+              'MIA': 'Miami',
+              'IND': 'Indiana',
+              'TOR': 'Toronoto',
+              'CHI': 'Chicago',
+              'BKN': 'Brooklyn',
+              'CHA': 'Charlotte',
+              'NYK': 'New+York',
+              'DET': 'Detroit',
+              'PHI': 'Philadelphia',
+              'ORL': 'Orlando',
+              'MIL': 'Milwaukee',
+              'WAS': 'Washington+DC',
+              'DEN': 'Denver',
+              'DAL': 'Dallas',
+              'MIN': 'Minnesota',
+              'LAC': 'Los+Angeles',
+              'HOU': 'Houston',
+              'LAL': 'Los+Angeles',
+              'MEM': 'Memphis',
+              'PHX': 'Phoenix',
+              'NOP': 'New+Orleans',
+              'UTA': 'Utah',
+              'SAC': 'Sacramento'}
+
+with open('data/city_abbrv.json', 'w') as f:
+    json.dump(city_abbrv, f)
