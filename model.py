@@ -1,5 +1,7 @@
 from sklearn.linear_model import LogisticRegressionCV
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier,\
+                             GradientBoostingClassifier,\
+                             ExtraTreesClassifier
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import auc, roc_auc_score, roc_curve,\
                             precision_recall_curve
@@ -46,7 +48,6 @@ def main():
                                  n_jobs=-1,
                                  oob_score=True).fit(X_subtrain, y_subtrain)
     rfc_prob = rfc.predict_proba(X_subtest)[:, 1]
-    rfc_pred = rfc.predict(X_subtest)
 
     # train a gradient boosted tree model
     # used gridsearch to select the best parameters
@@ -56,16 +57,26 @@ def main():
                                      max_features='sqrt')\
                                     .fit(X_subtrain, y_subtrain)
     gbc_prob = gbc.predict_proba(X_subtest)[:, 1]
-    gbc_pred = gbc.predict(X_subtest)
 
-    probs_list = [rfc_prob, logreg_prob, gbc_prob]
-    model_names = ['RANDOM FOREST', 'LOGISTIC REGRESSION',
+    # train an extra trees model
+    # used gridsearch to select the best parameters
+    etc = ExtraTreesClassifier(n_estimators=200, n_jobs=-1)\
+                              .fit(X_subtrain, y_subtrain)
+    etc_prob = etc.predict_proba(X_subtest)[:, 1]
+
+    probs_list = [etc_prob, rfc_prob, logreg_prob, gbc_prob]
+    model_names = ['EXTRA TREES', 'RANDOM FOREST', 'LOGISTIC REGRESSION',
                    'GRADIENT BOOSTED TREES']
-    compare_plots(y_subtest, probs_list, model_names)
-    plot_important_features(rfc, X_subtest)
+    compare_plots(y_subtest, probs_list, model_names, save_plot=True)
+    plot_important_features(etc, X_subtest, save_plot=True,
+                            plot_name='feature_importances.png')
 
-    with open('rfc_model.pickle', 'w') as f:
-        pickle.dump(rfc, f)
+    for model, prob in zip(model_names, probs_list):
+        print '{} Precision-Recall AUC: {}'.format(model, pr_auc(y_subtest,
+                                                                 prob))
+
+    with open('etc_model.pickle', 'w') as f:
+        pickle.dump(etc, f)
 
 def feature_select(df, drop_feats):
 
@@ -110,7 +121,7 @@ def search_best_params(X, y, est, search_params, scoring='roc_auc', cv=3):
 
 def compare_plots(y_true, probs_list, model_names, save_plot=False):
     with plt.style.context('fivethirtyeight'):
-        fig1, ax1 = plt.subplots(figsize=(10, 8))
+        fig1, ax1 = plt.subplots(figsize=(12, 10))
         for model, prob in zip(model_names, probs_list):
             precision, recall, thres1 = precision_recall_curve(y_true, prob)
             ax1.plot(recall, precision, label=model)
@@ -125,11 +136,11 @@ def compare_plots(y_true, probs_list, model_names, save_plot=False):
                 label='RANDOM GUESSING')
         plt.legend(loc='best')
         if save_plot:
-            fig.savefig('images/all_pr_curve.png', bbox_inches='tight')
+            fig1.savefig('images/all_pr_curve.png', bbox_inches='tight')
 
         fig2, ax2 = plt.subplots(figsize=(10, 8))
         for model, prob in zip(model_names, probs_list):
-            fpr, tpr, thres1 = roc_curve(y_true, prob)
+            fpr, tpr, thres2 = roc_curve(y_true, prob)
             ax2.plot(fpr, tpr, label=model)
             ax2.fill_between(fpr, 0, tpr, alpha=.2)
             ax2.set_title('ROC CURVE')
@@ -139,7 +150,7 @@ def compare_plots(y_true, probs_list, model_names, save_plot=False):
         ax2.fill_between(np.linspace(0, 1), 0, np.linspace(0, 1), alpha=.2)
         plt.legend(loc='best')
         if save_plot:
-            fig2.savefig('images/all_pr_curve.png', bbox_inches='tight')
+            fig2.savefig('images/all_roc_curve.png', bbox_inches='tight')
 
 
 def roc_pr(y_true, probs, save_plot=False, plot_name=''):
@@ -192,7 +203,7 @@ def plot_important_features(est, X, save_plot=False,
 
     with plt.style.context('fivethirtyeight'):
         # Plot the feature importances of the forest
-        plt.figure(figsize=(14, 8))
+        plt.figure(figsize=(16, 8))
         plt.suptitle('FEATURE IMPORTANCES', fontsize=20, y=1.05)
         plt.bar(np.arange(X.shape[1]), importances[indices],
                 color="r", yerr=std, alpha=.8, align="center")
@@ -205,6 +216,10 @@ def plot_important_features(est, X, save_plot=False,
         if save_plot:
             plt.savefig('images/{}'.format(plot_name), bbox_inches='tight')
 
+
+def pr_auc(y_true, prob):
+    precision, recall, thres = precision_recall_curve(y_true, prob)
+    return auc(recall, precision)
 
 if __name__ == '__main__':
 
