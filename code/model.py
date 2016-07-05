@@ -60,15 +60,13 @@ def main():
 
     # train an extra trees model
     # used gridsearch to select the best parameters
-    etc = ExtraTreesClassifier(n_estimators=200, n_jobs=-1)\
-                              .fit(X_subtrain, y_subtrain)
+    etc = ExtraTreesClassifier(n_estimators=200, class_weight='balanced',
+                               n_jobs=-1).fit(X_subtrain, y_subtrain)
     etc_prob = etc.predict_proba(X_subtest)[:, 1]
 
-#    probs_list = [etc_prob, rfc_prob, logreg_prob, gbc_prob]
-#    model_names = ['EXTRA TREES', 'RANDOM FOREST', 'LOGISTIC REGRESSION',
-#                   'GRADIENT BOOSTED TREES']
-    probs_list = [etc_prob]
-    model_names = ['EXTRA TREES']
+    probs_list = [etc_prob, rfc_prob, logreg_prob, gbc_prob]
+    model_names = ['EXTRA TREES', 'RANDOM FOREST', 'LOGISTIC REGRESSION',
+                   'GRADIENT BOOSTED TREES']
     plot_roc_pr(y_subtest, probs_list, model_names, save_plot=True)
     plot_important_features(etc, X_subtest, save_plot=True,
                             plot_name='feature_importances.png')
@@ -209,7 +207,7 @@ def plot_important_features(est, X, save_plot=False,
 
 
 # calculates the area under the precision-recall curve
-def print_scores(y_true, prob):
+def pr_auc(y_true, prob):
     precision, recall, thres = precision_recall_curve(y_true, prob)
     return auc(recall, precision)
 
