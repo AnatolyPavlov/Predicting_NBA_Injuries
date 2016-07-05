@@ -34,7 +34,7 @@ def get_injuries():
                             ignore_index=True)
 
     # save to csv
-    df.to_csv('data/injuries.csv')
+    df.to_csv('../data/injuries.csv')
 
 if __name__ == '__main__':
     get_injuries()

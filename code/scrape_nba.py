@@ -60,7 +60,7 @@ class NBA_Scraper(object):
             r = self.get_response(url)
 
             # saves json
-            with open('data/{}_gamelog.json'.format(season), 'w') as f:
+            with open('../data/{}_gamelog.json'.format(season), 'w') as f:
                 json.dump(r.json(), f)
 
             if self.show_progress:
@@ -86,7 +86,7 @@ class NBA_Scraper(object):
             r = self.get_response(url)
 
             # saves json
-            with open('data/{}_heights_weights.json'.format(season), 'w') as f:
+            with open('../data/{}_heights_weights.json'.format(season), 'w') as f:
                 json.dump(r.json(), f)
 
             if self.show_progress:
@@ -112,7 +112,7 @@ class NBA_Scraper(object):
             r = self.get_response(url)
 
             # saves json
-            with open('data/{}_season_stats.json'.format(season), 'w') as f:
+            with open('../data/{}_season_stats.json'.format(season), 'w') as f:
                 json.dump(r.json(), f)
 
             if self.show_progress:
@@ -142,7 +142,7 @@ class NBA_Scraper(object):
 
             if self.show_progress:
                 self.print_progress(season)
-        if show_progress:
+        if self.show_progress:
             print "Game ID's all scraped!"
 
     # scrapes pace or tracking stats
@@ -185,5 +185,5 @@ class NBA_Scraper(object):
             i += 1
 
             # saves as a pickle
-            with open('data/{}_{}_stats.pickle'.format(season, stat), 'w') as f:
+            with open('../data/{}_{}_stats.pickle'.format(season, stat), 'w') as f:
                 pickle.dump(json_list, f)

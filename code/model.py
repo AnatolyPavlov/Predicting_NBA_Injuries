@@ -3,8 +3,8 @@ from sklearn.ensemble import RandomForestClassifier,\
                              GradientBoostingClassifier,\
                              ExtraTreesClassifier
 from sklearn.cross_validation import train_test_split
-from sklearn.metrics import auc, roc_auc_score, roc_curve,\
-                            precision_recall_curve
+from sklearn.metrics import auc, roc_curve, precision_recall_curve
+from sklearn.grid_search import GridSearchCV
 import cPickle as pickle
 import numpy as np
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 def main():
 
-    with open('data/feat_mat.pickle', 'r') as f:
+    with open('../pickles/feat_mat.pickle', 'r') as f:
         feat_mat = pickle.load(f)
 
     drop_feats = ['PLAYER', 'PLAYER_ID', 'FG3M', 'Season Dates',
@@ -64,10 +64,12 @@ def main():
                               .fit(X_subtrain, y_subtrain)
     etc_prob = etc.predict_proba(X_subtest)[:, 1]
 
-    probs_list = [etc_prob, rfc_prob, logreg_prob, gbc_prob]
-    model_names = ['EXTRA TREES', 'RANDOM FOREST', 'LOGISTIC REGRESSION',
-                   'GRADIENT BOOSTED TREES']
-    compare_plots(y_subtest, probs_list, model_names, save_plot=True)
+#    probs_list = [etc_prob, rfc_prob, logreg_prob, gbc_prob]
+#    model_names = ['EXTRA TREES', 'RANDOM FOREST', 'LOGISTIC REGRESSION',
+#                   'GRADIENT BOOSTED TREES']
+    probs_list = [etc_prob]
+    model_names = ['EXTRA TREES']
+    plot_roc_pr(y_subtest, probs_list, model_names, save_plot=True)
     plot_important_features(etc, X_subtest, save_plot=True,
                             plot_name='feature_importances.png')
 
@@ -75,9 +77,11 @@ def main():
         print '{} Precision-Recall AUC: {}'.format(model, pr_auc(y_subtest,
                                                                  prob))
 
-    with open('etc_model.pickle', 'w') as f:
+    with open('../pickles/etc_model.pickle', 'w') as f:
         pickle.dump(etc, f)
 
+
+# select which feature to use in the feature matrix
 def feature_select(df, drop_feats):
 
     # remove features
@@ -106,6 +110,7 @@ def feature_select(df, drop_feats):
     return df
 
 
+# splits the full matrix into the feature matrix and target variables
 def create_Xy(df):
     # separates the matrix into the features and target variables
     y = df['INJURED']
@@ -113,13 +118,33 @@ def create_Xy(df):
     return X, y
 
 
+# grid search for the best hyperparameters
 def search_best_params(X, y, est, search_params, scoring='roc_auc', cv=3):
+    '''
+    INPUT:
+        X: feature matrix
+        y: target variables
+        est: model
+        search_params: a dictionary of parameters to grid search
+        scoring: how to score the cross validations (default is roc_auc)
+        cv: the number of cross validations (default is 3)
+    OUTPUT: best parameters
+    '''
     gs = GridSearchCV(est, param_grid=search_params, scoring='roc_auc',
-                      cv=5, n_jobs=-1).fit(X_subtrain, y_subtrain)
-    return rfc_gs.best_params_
+                      cv=5, n_jobs=-1).fit(X, y)
+    return gs.best_params_
 
 
-def compare_plots(y_true, probs_list, model_names, save_plot=False):
+# plots the ROC and precision-recall curves of all the models on one plot
+def plot_roc_pr(y_true, probs_list, model_names, save_plot=False):
+    '''
+    INPUT: y_true, a list of probabilities, a list of model names
+           Provide a list of multiple probabilities and model names to compare
+           plots.
+           Provide a list of a single probability and model name for only one
+           plot.
+    OUTPUT: plots
+    '''
     with plt.style.context('fivethirtyeight'):
         fig1, ax1 = plt.subplots(figsize=(12, 10))
         for model, prob in zip(model_names, probs_list):
@@ -136,7 +161,7 @@ def compare_plots(y_true, probs_list, model_names, save_plot=False):
                 label='RANDOM GUESSING')
         plt.legend(loc='best')
         if save_plot:
-            fig1.savefig('images/all_pr_curve.png', bbox_inches='tight')
+            fig1.savefig('../images/all_pr_curve.png', bbox_inches='tight')
 
         fig2, ax2 = plt.subplots(figsize=(10, 8))
         for model, prob in zip(model_names, probs_list):
@@ -150,44 +175,10 @@ def compare_plots(y_true, probs_list, model_names, save_plot=False):
         ax2.fill_between(np.linspace(0, 1), 0, np.linspace(0, 1), alpha=.2)
         plt.legend(loc='best')
         if save_plot:
-            fig2.savefig('images/all_roc_curve.png', bbox_inches='tight')
+            fig2.savefig('../images/all_roc_curve.png', bbox_inches='tight')
 
 
-def roc_pr(y_true, probs, save_plot=False, plot_name=''):
-    fpr, tpr, thres1 = roc_curve(y_true, probs)
-    random_prob = np.random.random(y_true.shape[0])
-    random_precision, random_recall, thres2 = precision_recall_curve(y_true, random_prob)
-    precision, recall, thres2 = precision_recall_curve(y_true, probs)
-    with plt.style.context('fivethirtyeight'):
-        fig1, ax1 = plt.subplots(figsize=(8, 8))
-        ax1.plot(fpr, tpr)
-        ax1.fill_between(fpr, 0, tpr, alpha=.2)
-        ax1.plot(np.linspace(0, 1), np.linspace(0, 1), alpha=.4, color='r')
-        ax1.fill_between(np.linspace(0, 1), 0, np.linspace(0, 1), alpha=.2)
-        ax1.set_title('ROC CURVE')
-        ax1.set_xlabel('FALSE POSITIVE RATE')
-        ax1.set_ylabel('TRUE POSITIVE RATE')
-        ax1.text(1.1, 1, 'ROC AUC: {:.3f}'.format(roc_auc_score(y_true,
-                                                                probs)))
-        if save_plot:
-            fig1.savefig('images/{}_roc_curve.png'.format(plot_name),
-                         bbox_inches='tight')
-
-        fig2, ax2 = plt.subplots(figsize=(8, 6))
-        ax2.plot(recall, precision)
-        ax2.fill_between(recall, 0, precision, alpha=.2)
-        ax2.plot(random_recall, random_precision, alpha=.4)
-        ax2.fill_between(random_recall, 0, random_precision, alpha=.2,
-                         color='r')
-        ax2.set_title('PRECISION-RECALL CURVE')
-        ax2.set_xlabel('RECALL')
-        ax2.set_ylabel('PRECISION')
-        ax2.text(1.1, 1, 'P-R AUC: {:.3f}'.format(auc(recall, precision)))
-        if save_plot:
-            fig2.savefig('images/{}_pr_curve.png'.format(plot_name),
-                         bbox_inches='tight')
-
-
+# plots the feature importances
 def plot_important_features(est, X, save_plot=False,
                             plot_name='feature_importances.png'):
     '''
@@ -214,10 +205,11 @@ def plot_important_features(est, X, save_plot=False,
         plt.ylabel('IMPORTANCES', fontsize=14)
         plt.xlim([-1, X.shape[1]])
         if save_plot:
-            plt.savefig('images/{}'.format(plot_name), bbox_inches='tight')
+            plt.savefig('../images/{}'.format(plot_name), bbox_inches='tight')
 
 
-def pr_auc(y_true, prob):
+# calculates the area under the precision-recall curve
+def print_scores(y_true, prob):
     precision, recall, thres = precision_recall_curve(y_true, prob)
     return auc(recall, precision)
 

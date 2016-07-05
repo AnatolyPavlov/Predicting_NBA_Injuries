@@ -27,7 +27,7 @@ def get_distance():
         distance_dict[combo] = api_call(combo[0], combo[1])
         sleep(5)
 
-    with open('data/city_distances.pickle', 'w') as f:
+    with open('../data/city_distances.pickle', 'w') as f:
         pickle.dump(distance_dict, f)
 
 if __name__ == '__main__':
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     access_key = os.environ['GOOGLE_KEY']
 
     # city_abbrv maps the NBA city abbreviations to the actual city names
-    with open('data/city_abbrv.json', 'r') as f:
+    with open('../data/city_abbrv.json', 'r') as f:
         city_abbrv = json.load(f)
 
     # create all possible pair combinations of the cities

@@ -31,5 +31,5 @@ city_abbrv = {'ATL': 'Atlanta',
               'UTA': 'Utah',
               'SAC': 'Sacramento'}
 
-with open('data/city_abbrv.json', 'w') as f:
+with open('../data/city_abbrv.json', 'w') as f:
     json.dump(city_abbrv, f)

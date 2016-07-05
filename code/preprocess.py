@@ -9,8 +9,8 @@ import cPickle as pickle
 
 
 # function to extract information from the json files
-def json_extract(file):
-    with open('data/{}'.format(file)) as f:
+def json_extract(filename):
+    with open('../data/{}'.format(filename)) as f:
         data = json.load(f)
         cols = data['resultSets'][0]['headers']
         vals = data['resultSets'][0]['rowSet']
@@ -18,12 +18,15 @@ def json_extract(file):
 
 
 # creates dataframe from the json information
-# keyword = gamelog, season_stats, or heights_weights
 def create_df(keyword, add_year=False):
-
-    fns = os.listdir('data/')
-
-    cols = json_extract('2013_{}.json'.format(keyword))[0]
+    '''
+    INPUT: keyword = 'gamelog', 'season_stats', or 'heights_weights'
+           The add_year option adds a YEAR column that has a value associated
+           with the year from the filename.
+    OUTPUT: dataframe
+    '''
+    fns = os.listdir('../data/')
+    cols = json_extract('../data/2013_{}.json'.format(keyword))[0]
     if add_year:
         cols += ['YEAR']
     df = pd.DataFrame(columns=cols)
@@ -39,7 +42,14 @@ def create_df(keyword, add_year=False):
     return df
 
 
+# converts the date column into a datatime object
 def parse_date(df, date_col, create_sep_cols=True):
+    '''
+    INPUT: dataframe, the name of the column to be converted to datetime
+           The create_sep_cols option splits the date into YEAR, MONTH, and
+           DAY columns.
+    OUTPUT: dataframe
+    '''
     df[date_col] = pd.to_datetime(df[date_col], infer_datetime_format=True)
     if create_sep_cols:
         date = df[date_col]
@@ -49,6 +59,8 @@ def parse_date(df, date_col, create_sep_cols=True):
     return df
 
 
+# used in an apply function.
+# removes things like (a) and (b)
 def clean_notes(x):
     found = re.findall(r'\s\(\w\)', x)
     if found:
@@ -122,6 +134,7 @@ def prep_injury(df):
     df[df['Player'] == '(William) Tony Parker']['Player'] = 'Tony Parker'
     df = df[df['Player'] != '']
 
+    # compare names in the injury list with names from the nba
     for player in players:
         df['Player'] = df['Player'].apply(lambda x:
                                           player if player in x else x)
@@ -146,17 +159,16 @@ def prep_gamelog(df):
     return df
 
 
+# dropping conflicted rows when the injury data indicated a player sat out
+# when he, in fact, did play
 def remove_conflicts(df):
-    # dropping conflicted rows when the injury data indicated a player sat out
-    # when he, in fact, did play
     conflict_idx = df.index[df[(df['GAME_DATE'].notnull()) &
                                (df['Date_Injury'].notnull())].index]
     df.drop(conflict_idx, inplace=True)
     return df
 
-
+# combining the non-nan GAME_DATE and non-nan Date values into one column
 def combine_non_nan(df):
-    # combining the non-nan GAME_DATE and non-nan Date values into one column
     GAME_DATE = df['GAME_DATE'].dropna()
     date = df['Date_Injury'].dropna()
     combined_date = pd.concat([GAME_DATE, date])
@@ -170,8 +182,8 @@ def combine_non_nan(df):
 # creates a list of the start and end date of each season
 def find_season_beg_end():
 
-    fns = os.listdir('data/')
-    cols = json_extract('2013_gamelog.json')[0]
+    fns = os.listdir('../data/')
+    cols = json_extract('../data/2013_gamelog.json')[0]
 
     season_beg_end = []
     for fn in fns:
@@ -185,6 +197,7 @@ def find_season_beg_end():
     return season_beg_end
 
 
+# creates a dataframe with all of the possible dates within a season
 def create_season_dates():
     season_beg_end = find_season_beg_end()
     season_dates = pd.DataFrame(columns=['Date'])
@@ -198,6 +211,8 @@ def create_season_dates():
     return season_dates
 
 
+# creates the feature matrix
+# the default aggregation window is 21 days
 def create_feat_mat(df, data_window=21):
     feat_mat = pd.DataFrame()
     player_ids = df['PLAYER_ID'].unique().tolist()
@@ -208,18 +223,19 @@ def create_feat_mat(df, data_window=21):
     return feat_mat
 
 
+# converts pickled files to dataframes
 def pickles_to_pandas(keyword, add_year=False):
 
-    fns = os.listdir('data/')
+    fns = os.listdir('../data/')
 
-    with open('data/2014_{}_stats.pickle'.format(keyword), 'r') as f:
+    with open('../data/2014_{}_stats.pickle'.format(keyword), 'r') as f:
         pkl_f = pickle.load(f)
         cols = pkl_f[0]['resultSets'][0]['headers']
     df = pd.DataFrame(columns=cols)
 
     for fn in fns:
         if keyword in fn:
-            with open('data/{}'.format(fn), 'r') as f:
+            with open('../data/{}'.format(fn), 'r') as f:
                 pkl_f = pickle.load(f)
             for item in pkl_f:
                 tmp_cols = item['resultSets'][0]['headers']
@@ -232,7 +248,13 @@ def pickles_to_pandas(keyword, add_year=False):
     return df
 
 
+# adds pace and tracking stats to the feature matrix
 def pace_tracking(keep_cols, keyword):
+    '''
+    INPUT: a list of columns from the pace and tracking dataframes to keep.
+           keyword = 'pace' or 'tracking'
+    OUTPUT: dataframe
+    '''
     df = pickles_to_pandas(keyword, add_year=True)
     df.drop(df.columns - keep_cols, axis=1, inplace=True)
     df.rename(columns={'GAME_ID': 'GAME_ID_{}'.format(keyword.upper()),
@@ -243,8 +265,14 @@ def pace_tracking(keep_cols, keyword):
     return df
 
 
+# adds an INJURY and MILES TRAVELED column to the dataframe
 def add_injury_miles_traveled(df, players):
-    with open('data/city_distances.pickle', 'r') as f:
+    '''
+    INPUT: the dataframe to add these columns to, a list of all the players
+           in the NBA
+    OUTPUT: dataframe
+    '''
+    with open('../data/city_distances.pickle', 'r') as f:
         city_distances = pickle.load(f)
 
     # creating an injury flag column
@@ -274,7 +302,7 @@ def add_injury_miles_traveled(df, players):
 
 # determines the game location by seeing if it's a home (vs.) or away (@) game
 def game_loc(x):
-    with open('data/city_abbrv.json', 'r') as f:
+    with open('../data/city_abbrv.json', 'r') as f:
         city_abbrv = json.load(f)
     if 'vs.' in x:
         return city_abbrv[re.split(r' vs. ', x)[0]]
@@ -282,14 +310,14 @@ def game_loc(x):
         return city_abbrv[re.split(r' @ ', x)[1]]
 
 
+# counting the number of games played in the aggregation window
 def count_games(df):
-    # counting the number of games played in the aggregation window
     df['GAMES_PLAYED'] = df['MIN'].notnull() * 1
     return df
 
 
+# creating a column counting the number of back to back games
 def add_b2b(df):
-    # creating a column counting the number of back to back games
     df["BACK_TO_BACKS"] = df['DATE'].diff()
     df['BACK_TO_BACKS'] = df['BACK_TO_BACKS']\
                             .apply(lambda x:1 if x == pd.to_timedelta('1 days')
@@ -298,7 +326,7 @@ def add_b2b(df):
 
 
 # aggregates the stats within a window of specified days
-def agg_stats(df, window=21):
+def agg_stats(df, window):
     columns = df.columns.tolist()
     cat_dict = defaultdict(list)
     for i in xrange(0, len(df)):
@@ -375,7 +403,7 @@ def add_heights_weights(df, season_beg_end):
 
 def add_age(df):
     df['AGE'] = df.apply(lambda x: add_feat_to_df(ss_df, x['PLAYER'],
-                                        x['START_SEASON'], 'AGE'), axis=1)
+                                   x['START_SEASON'], 'AGE'), axis=1)
     return df
 
 
@@ -393,7 +421,7 @@ if __name__ == '__main__':
     gamelog_df = create_df('gamelog')
     gamelog_df = prep_gamelog(gamelog_df)
     players = gamelog_df['PLAYER_NAME'].unique().tolist()
-    injury_df = pd.read_csv('data/injuries.csv', usecols=[1, 3, 4])
+    injury_df = pd.read_csv('../data/injuries.csv', usecols=[1, 3, 4])
     injury_df = prep_injury(injury_df)
 
     # specifies the columns to keep from the pace and tracking data
@@ -459,5 +487,5 @@ if __name__ == '__main__':
     # the player played very little
     feat_mat = feat_mat[feat_mat['SPD'] != 0.0]
 
-    with open('feat_mat.pickle', 'w') as f:
+    with open('../pickles/feat_mat.pickle', 'w') as f:
         pickle.dump(feat_mat, f)
