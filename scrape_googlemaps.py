@@ -5,17 +5,6 @@ from time import sleep
 import cPickle as pickle
 import json
 
-# google api key
-access_key = os.environ['GOOGLE_KEY']
-
-# city_abbrv maps the NBA city abbreviations to the actual city names
-with open('data/city_abbrv.json', 'r') as f:
-    city_abbrv = json.load(f)
-
-# create all possible pair combinations of the cities
-cities = city_abbrv.values()
-city_combos = combinations(cities, r=2)
-
 
 # calls the googlemaps api to get the distances
 def api_call(city1, city2):
@@ -42,4 +31,15 @@ def get_distance():
         pickle.dump(distance_dict, f)
 
 if __name__ == '__main__':
+    # google api key
+    access_key = os.environ['GOOGLE_KEY']
+
+    # city_abbrv maps the NBA city abbreviations to the actual city names
+    with open('data/city_abbrv.json', 'r') as f:
+        city_abbrv = json.load(f)
+
+    # create all possible pair combinations of the cities
+    cities = city_abbrv.values()
+    city_combos = combinations(cities, r=2)
+
     get_distance()
