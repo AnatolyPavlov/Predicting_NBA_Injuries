@@ -37,8 +37,6 @@ def main():
 
     # train a logistic regression model
     logreg = LogisticRegressionCV(cv=3).fit(X_subtrain, y_subtrain)
-    logreg_prob = logreg.predict_proba(X_subtest)[:, 1]
-    logreg_pred = logreg.predict(X_subtest)
 
     # train a random forest model
     # used gridsearch to select the best parameters
@@ -47,8 +45,6 @@ def main():
                                  max_features='log2',
                                  n_jobs=-1,
                                  oob_score=True).fit(X_subtrain, y_subtrain)
-    rfc_prob = rfc.predict_proba(X_subtest)[:, 1]
-
     # train a gradient boosted tree model
     # used gridsearch to select the best parameters
     gbc = GradientBoostingClassifier(learning_rate=.2,
@@ -56,24 +52,26 @@ def main():
                                      max_depth=10,
                                      max_features='sqrt')\
                                     .fit(X_subtrain, y_subtrain)
-    gbc_prob = gbc.predict_proba(X_subtest)[:, 1]
 
     # train an extra trees model
     # used gridsearch to select the best parameters
-    etc = ExtraTreesClassifier(n_estimators=200, class_weight='balanced',
+    etc = ExtraTreesClassifier(n_estimators=200,
                                n_jobs=-1).fit(X_subtrain, y_subtrain)
-    etc_prob = etc.predict_proba(X_subtest)[:, 1]
 
-    probs_list = [etc_prob, rfc_prob, logreg_prob, gbc_prob]
-    model_names = ['EXTRA TREES', 'RANDOM FOREST', 'LOGISTIC REGRESSION',
-                   'GRADIENT BOOSTED TREES']
-    plot_roc_pr(y_subtest, probs_list, model_names, save_plot=True)
+    models = [etc, rfc, gbc, logreg]
+    plot_roc_pr(y_subtest, X_subtest, models, save_plot=True)
     plot_important_features(etc, X_subtest, save_plot=True,
                             plot_name='feature_importances.png')
 
-    for model, prob in zip(model_names, probs_list):
-        print '{} Precision-Recall AUC: {}'.format(model, pr_auc(y_subtest,
-                                                                 prob))
+#    for model, prob in zip(model_names, probs_list):
+#        print '{} Precision-Recall AUC: {}'.format(model, pr_auc(y_subtest,
+#                                                                 prob))
+
+    for model in models:
+        print '{} Precision-Recall AUC: {}'.format(model.__class__.__name__,
+                                                   pr_auc(y_subtest,
+                                                          X_subtest,
+                                                          model))
 
     with open('../pickles/etc_model.pickle', 'w') as f:
         pickle.dump(etc, f)
@@ -117,7 +115,7 @@ def create_Xy(df):
 
 
 # grid search for the best hyperparameters
-def search_best_params(X, y, est, search_params, scoring='roc_auc', cv=3):
+def search_best_params(X, y, model, search_params, scoring='roc_auc', cv=3):
     '''
     INPUT:
         X: feature matrix
@@ -128,33 +126,33 @@ def search_best_params(X, y, est, search_params, scoring='roc_auc', cv=3):
         cv: the number of cross validations (default is 3)
     OUTPUT: best parameters
     '''
-    gs = GridSearchCV(est, param_grid=search_params, scoring='roc_auc',
+    gs = GridSearchCV(model, param_grid=search_params, scoring='roc_auc',
                       cv=5, n_jobs=-1).fit(X, y)
     return gs.best_params_
 
 
 # plots the ROC and precision-recall curves of all the models on one plot
-def plot_roc_pr(y_true, probs_list, model_names, save_plot=False):
+def plot_roc_pr(y, X, models, save_plot=False):
     '''
-    INPUT: y_true, a list of probabilities, a list of model names
-           Provide a list of multiple probabilities and model names to compare
-           plots.
-           Provide a list of a single probability and model name for only one
-           plot.
+    INPUT: y, X, a list of models
+           Provide a list of models to compare plots.
+           Provide a list of a single model for only one plot.
     OUTPUT: plots
     '''
+
     with plt.style.context('fivethirtyeight'):
         fig1, ax1 = plt.subplots(figsize=(12, 10))
-        for model, prob in zip(model_names, probs_list):
-            precision, recall, thres1 = precision_recall_curve(y_true, prob)
-            ax1.plot(recall, precision, label=model)
+        for model in models:
+            prob = calc_prob(model, X)
+            precision, recall, thres1 = precision_recall_curve(y, prob)
+            ax1.plot(recall, precision, label=model.__class__.__name__)
             ax1.fill_between(recall, 0, precision, alpha=.2)
             ax1.set_title('PRECISION-RECALL CURVE')
             ax1.set_xlabel('RECALL')
             ax1.set_ylabel('PRECISION')
-        random_prob = np.random.random(y_true.shape[0])
+        random_prob = np.random.random(y.shape[0])
         random_precision, random_recall, thres2 =\
-                                precision_recall_curve(y_true, random_prob)
+                                precision_recall_curve(y, random_prob)
         ax1.plot(random_recall, random_precision, alpha=.5, c='k',
                 label='RANDOM GUESSING')
         plt.legend(loc='best')
@@ -162,9 +160,10 @@ def plot_roc_pr(y_true, probs_list, model_names, save_plot=False):
             fig1.savefig('../images/all_pr_curve.png', bbox_inches='tight')
 
         fig2, ax2 = plt.subplots(figsize=(10, 8))
-        for model, prob in zip(model_names, probs_list):
-            fpr, tpr, thres2 = roc_curve(y_true, prob)
-            ax2.plot(fpr, tpr, label=model)
+        for model in models:
+            prob = calc_prob(model, X)
+            fpr, tpr, thres2 = roc_curve(y, prob)
+            ax2.plot(fpr, tpr, label=model.__class__.__name__)
             ax2.fill_between(fpr, 0, tpr, alpha=.2)
             ax2.set_title('ROC CURVE')
             ax2.set_xlabel('FALSE POSITIVE RATE')
@@ -177,7 +176,7 @@ def plot_roc_pr(y_true, probs_list, model_names, save_plot=False):
 
 
 # plots the feature importances
-def plot_important_features(est, X, save_plot=False,
+def plot_important_features(model, X, save_plot=False,
                             plot_name='feature_importances.png'):
     '''
     INPUTS: Model, feature matrix
@@ -185,8 +184,8 @@ def plot_important_features(est, X, save_plot=False,
     OUTPUT:
     '''
     features = X.columns
-    importances = est.feature_importances_
-    std = np.std([tree.feature_importances_ for tree in est.estimators_],
+    importances = model.feature_importances_
+    std = np.std([tree.feature_importances_ for tree in model.estimators_],
                  axis=0)
     indices = np.argsort(importances)[::-1]
 
@@ -207,9 +206,15 @@ def plot_important_features(est, X, save_plot=False,
 
 
 # calculates the area under the precision-recall curve
-def pr_auc(y_true, prob):
-    precision, recall, thres = precision_recall_curve(y_true, prob)
+def pr_auc(y, X, model):
+    prob = calc_prob(model, X)
+    precision, recall, thres = precision_recall_curve(y, prob)
     return auc(recall, precision)
+
+
+# calculates the probability of each data point
+def calc_prob(model, X):
+    return model.predict_proba(X)[:, 1]
 
 if __name__ == '__main__':
 
