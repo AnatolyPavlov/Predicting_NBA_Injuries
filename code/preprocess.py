@@ -275,6 +275,7 @@ def add_injury_miles_traveled(df, players):
     with open('../data/city_distances.pickle', 'r') as f:
         city_distances = pickle.load(f)
 
+    city_distances_keys = set(city_distances.keys())
     # creating an injury flag column
     # a player is marked as injured if an injury occurred in the next 3 games
     merged = pd.DataFrame()
@@ -290,10 +291,10 @@ def add_injury_miles_traveled(df, players):
             city2 = tmp['GAME_LOCATION'].iloc[i+1]
             if city1 == city2:
                 pass
-            if (city1, city2) in set(city_distances.keys()):
+            if (city1, city2) in city_distances_keys:
                 tmp['MILES_TRAVELED'].iloc[i+1] = city_distances[(city1,
                                                                   city2)]
-            elif (city2, city1) in set(city_distances.keys()):
+            elif (city2, city1) in city_distances_keys:
                 tmp['MILES_TRAVELED'].iloc[i+1] = city_distances[(city2,
                                                                   city1)]
         merged = merged.append(tmp)
