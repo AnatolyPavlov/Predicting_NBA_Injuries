@@ -63,10 +63,6 @@ def main():
     plot_important_features(etc, X_subtest, save_plot=True,
                             plot_name='feature_importances.png')
 
-#    for model, prob in zip(model_names, probs_list):
-#        print '{} Precision-Recall AUC: {}'.format(model, pr_auc(y_subtest,
-#                                                                 prob))
-
     for model in models:
         print '{} Precision-Recall AUC: {}'.format(model.__class__.__name__,
                                                    pr_auc(y_subtest,
